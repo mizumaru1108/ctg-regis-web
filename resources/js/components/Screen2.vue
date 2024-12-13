@@ -56,8 +56,9 @@
                 <button
                     type="submit"
                     class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
+                    :disabled="loading"
                 >
-                    Submit
+                    {{ loading ? "Submitting..." : "Submit" }}
                 </button>
             </form>
         </div>
@@ -67,17 +68,38 @@
 <script>
 import { useOrganizationStore } from "../../store/organizationStore";
 import { storeToRefs } from "pinia";
+import axios from "axios";
+import { ref } from "vue";
 
 export default {
     setup(_, { emit }) {
-        // Destructure `emit` from the second argument
-        const instansiStore = useOrganizationStore();
-        const { form, errors } = storeToRefs(instansiStore); // Reactive references
+        const organizationStore = useOrganizationStore();
+        const { form, errors } = storeToRefs(organizationStore);
 
-        const handleSubmit = () => {
-            if (instansiStore.validateForm()) {
-                console.log(form.value); // Access form values with .value
-                emit("navigate", 3); // Use `emit` for navigation
+        const loading = ref(false);
+        const baseURL = import.meta.env.VITE_BASE_API_URL;
+
+        const handleSubmit = async () => {
+            if (organizationStore.validateForm()) {
+                loading.value = true;
+                try {
+                    const response = await axios.post(
+                        `${baseURL}/api/organizations`,
+                        form.value
+                    );
+                    console.log("Success:", response.data);
+                    emit("navigate", 3);
+                } catch (error) {
+                    console.error(
+                        "Error submitting form:",
+                        error.response?.data || error.message
+                    );
+                    if (error.response?.data?.errors) {
+                        Object.assign(errors.value, error.response.data.errors);
+                    }
+                } finally {
+                    loading.value = false;
+                }
             }
         };
 
@@ -85,47 +107,15 @@ export default {
             form,
             errors,
             handleSubmit,
+            loading,
         };
     },
 };
-
-// export default {
-//     // data() {
-//     //     return {
-//     //         form: {
-//     //             nama: '',
-//     //             nomor_telpon: '',
-//     //             email: '',
-//     //             nomor_instansi: '',
-//     //         },
-//     //         errors: {},
-//     //     };
-//     // },
-//     // methods: {
-//     //     async handleSubmit() {
-//     //         this.errors = {};
-//     //         if (!this.form.nama) this.errors.nama = "Nama is required.";
-//     //         if (!this.form.nomor_telpon) this.errors.nomor_telpon = "Nomor telpon is required.";
-//     //         if (!this.form.email) this.errors.email = "Email is required.";
-//     //         if (!this.form.nomor_instansi) this.errors.nomor_instansi = "Nomor instansi is required.";
-//     //         if (!Object.keys(this.errors).length) {
-//     //             try {
-//     //                 const response = await fetch("http://localhost:8000/api/organizations", {
-//     //                     method: "POST",
-//     //                     headers: { "Content-Type": "application/json" },
-//     //                     body: JSON.stringify(this.form),
-//     //                 });
-//     //                 if (response.ok) {
-//     //                     console.log("Success:", await response.json());
-//     //                     this.$emit('navigate', 3);
-//     //                 } else {
-//     //                     throw new Error("Failed to save.");
-//     //                 }
-//     //             } catch (error) {
-//     //                 console.error(error);
-//     //             }
-//     //         }
-//     //     },
-//     // },
-// };
 </script>
+
+<style scoped>
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+</style>
